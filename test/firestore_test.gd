@@ -1,11 +1,11 @@
 extends Node2D
 
-export var email := ""
-export var password := ""
+@export var email := ""
+@export var password := ""
 
 func _ready() -> void:
     Firebase.Auth.login_with_email_and_password(email, password)
-    yield(Firebase.Auth, "login_succeeded")
+    await Firebase.Auth.login_succeeded
     print("Logged in!")
 
     var task: FirestoreTask
@@ -13,7 +13,7 @@ func _ready() -> void:
     Firebase.Firestore.disable_networking()
 
     task = Firebase.Firestore.list("test_collection", 5, "", "number")
-    print(yield(task, "listed_documents"))
+    print(await task.listed_documents)
 
     var test : FirestoreCollection = Firebase.Firestore.collection("test_collection")
 
@@ -22,10 +22,10 @@ func _ready() -> void:
         task = test.delete(name)
         task = test.update(name, {"number": i + 10})
 
-    var document = yield(task, "task_finished")
+    var document = await task.task_finished
 
     Firebase.Firestore.enable_networking()
 
     task = test.get("some_document_%d" % hash(str(4)))
-    document = yield(task, "task_finished")
+    document = await task.task_finished
     print(document)

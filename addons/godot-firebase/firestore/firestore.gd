@@ -1,3 +1,4 @@
+@tool
 ## @meta-authors Nicolò 'fenix' Santilio,
 ## @meta-version 2.5
 ##
@@ -12,7 +13,6 @@
 ## (source: [url=https://firebase.google.com/docs/firestore]Firestore[/url])
 ##
 ## @tutorial https://github.com/GodotNuts/GodotFirebase/wiki/Firestore
-tool
 class_name FirebaseFirestore
 extends Node
 
@@ -56,7 +56,7 @@ var persistence_enabled : bool = false
 
 ## Whether an internet connection can be used.
 ## @default true
-var networking: bool = true setget set_networking
+var networking: bool = true: set = set_networking
 
 ## A Dictionary containing all collections currently referenced.
 ## @type Dictionary
@@ -83,7 +83,7 @@ var _current_query : FirestoreQuery
 
 var _http_request_pool := []
 
-var _offline: bool = false setget _set_offline
+var _offline: bool = false: set = _set_offline
 
 func _ready() -> void:
     pass
@@ -141,14 +141,14 @@ func collection(path : String) -> FirestoreCollection:
 ## @return FirestoreTask
 func query(query : FirestoreQuery) -> FirestoreTask:
     var firestore_task : FirestoreTask = FirestoreTask.new()
-    firestore_task.connect("result_query", self, "_on_result_query")
-    firestore_task.connect("task_error", self, "_on_task_error")
+    firestore_task.connect("result_query", Callable(self, "_on_result_query"))
+    firestore_task.connect("task_error", Callable(self, "_on_task_error"))
     firestore_task.action = FirestoreTask.Task.TASK_QUERY
     var body : Dictionary = { structuredQuery = query.query }
     var url : String = _base_url + _extended_url + _query_suffix
 
     firestore_task.data = query
-    firestore_task._fields = JSON.print(body)
+    firestore_task._fields = JSON.stringify(body)
     firestore_task._url = url
     _pooled_request(firestore_task)
     return firestore_task
@@ -170,8 +170,8 @@ func query(query : FirestoreQuery) -> FirestoreTask:
 ## @return FirestoreTask
 func list(path : String = "", page_size : int = 0, page_token : String = "", order_by : String = "") -> FirestoreTask:
     var firestore_task : FirestoreTask = FirestoreTask.new()
-    firestore_task.connect("listed_documents", self, "_on_listed_documents")
-    firestore_task.connect("task_error", self, "_on_task_error")
+    firestore_task.connect("listed_documents", Callable(self, "_on_listed_documents"))
+    firestore_task.connect("task_error", Callable(self, "_on_task_error"))
     firestore_task.action = FirestoreTask.Task.TASK_LIST
     var url : String = _base_url + _extended_url + path
     if page_size != 0:
@@ -226,13 +226,13 @@ func _set_offline(value: bool) -> void:
         var offline_time := 2147483647 # Maximum signed 32-bit integer
         var file := File.new()
         if file.open_encrypted_with_pass(event_record_path, File.READ, _encrypt_key) == OK:
-            offline_time = int(file.get_buffer(file.get_len()).get_string_from_utf8()) - 2
+            offline_time = int(file.get_buffer(file.get_length()).get_string_from_utf8()) - 2
         file.close()
 
-        var cache_dir := Directory.new()
+        var cache_dir := DirAccess.new()
         var cache_files := []
         if cache_dir.open(_cache_loc) == OK:
-            cache_dir.list_dir_begin(true)
+            cache_dir.list_dir_begin() # TODOConverter3To4 fill missing arguments https://github.com/godotengine/godot/pull/40547
             var file_name = cache_dir.get_next()
             while file_name != "":
                 if not cache_dir.current_is_dir() and file_name.ends_with(_CACHE_EXTENSION):
@@ -251,15 +251,17 @@ func _set_offline(value: bool) -> void:
             if file.open_encrypted_with_pass(cache, File.READ, _encrypt_key) == OK:
                 var name := file.get_line()
                 var content := file.get_line()
-                var collection_id := name.left(name.find_last("/"))
-                var document_id := name.right(name.find_last("/") + 1)
+                var collection_id := name.left(name.rfind("/"))
+                var document_id := name.right(name.rfind("/") + 1)
 
                 var collection := collection(collection_id)
                 if content == "--deleted--":
                     collection.delete(document_id)
                     deleted = true
                 else:
-                    collection.update(document_id, FirestoreDocument.fields2dict(JSON.parse(content).result))
+                    var test_json_conv = JSON.new()
+                    test_json_conv.parse(content).result))
+                    collection.update(document_id, FirestoreDocument.fields2dict(test_json_conv.get_data()
             else:
                 Firebase._printerr("Failed to retrieve cache %s! Error code: %d" % [cache, file.get_error()])
             file.close()
@@ -269,7 +271,7 @@ func _set_offline(value: bool) -> void:
     else:
         var file := File.new()
         if file.open_encrypted_with_pass(event_record_path, File.WRITE, _encrypt_key) == OK:
-            file.store_buffer(str(OS.get_unix_time()).to_utf8())
+            file.store_buffer(str(Time.get_unix_time_from_system()).to_utf8_buffer())
         file.close()
 
 
@@ -300,19 +302,19 @@ func _check_emulating() -> void :
 
 func _pooled_request(task : FirestoreTask) -> void:
     if _offline:
-        task._on_request_completed(HTTPRequest.RESULT_CANT_CONNECT, 404, PoolStringArray(), PoolByteArray())
+        task._on_request_completed(HTTPRequest.RESULT_CANT_CONNECT, 404, PackedStringArray(), PackedByteArray())
         return
 
     if not auth and not Firebase.emulating:
         Firebase._print("Unauthenticated request issued...")
         Firebase.Auth.login_anonymous()
-        var result : Array = yield(Firebase.Auth, "auth_request")
+        var result : Array = await Firebase.Auth.auth_request
         if result[0] != 1:
             _check_auth_error(result[0], result[1])
         Firebase._print("Client connected as Anonymous")
 
     if not Firebase.emulating:
-        task._headers = PoolStringArray([_AUTHORIZATION_HEADER + auth.idtoken])
+        task._headers = PackedStringArray([_AUTHORIZATION_HEADER + auth.idtoken])
 
     var http_request : HTTPRequest
     for request in _http_request_pool:
@@ -325,7 +327,7 @@ func _pooled_request(task : FirestoreTask) -> void:
         http_request.timeout = 5
         _http_request_pool.append(http_request)
         add_child(http_request)
-        http_request.connect("request_completed", self, "_on_pooled_request_completed", [http_request])
+        http_request.connect("request_completed", Callable(self, "_on_pooled_request_completed").bind(http_request))
 
     http_request.set_meta("requesting", true)
     http_request.set_meta("lifetime", 0.0)
@@ -359,7 +361,7 @@ func _on_FirebaseAuth_token_refresh_succeeded(auth_result : Dictionary) -> void:
         collections[key].auth = auth
 
 
-func _on_pooled_request_completed(result : int, response_code : int, headers : PoolStringArray, body : PoolByteArray, request : HTTPRequest) -> void:
+func _on_pooled_request_completed(result : int, response_code : int, headers : PackedStringArray, body : PackedByteArray, request : HTTPRequest) -> void:
     request.get_meta("task")._on_request_completed(result, response_code, headers, body)
     request.set_meta("requesting", false)
 

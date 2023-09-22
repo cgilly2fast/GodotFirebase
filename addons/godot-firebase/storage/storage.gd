@@ -1,10 +1,10 @@
+@tool
 ## @meta-authors SIsilicon
 ## @meta-version 2.2
 ## The Storage API for Firebase.
 ## This object handles all firebase storage tasks, variables and references. To use this API, you must first create a [StorageReference] with [method ref]. With the reference, you can then query and manipulate the file or folder in the cloud storage.
 ##
 ## [i]Note: In HTML builds, you must configure [url=https://firebase.google.com/docs/storage/web/download-files#cors_configuration]CORS[/url] in your storage bucket.[i]
-tool
 class_name FirebaseStorage
 extends Node
 
@@ -42,8 +42,8 @@ var _pending_tasks: Array = []
 
 var _current_task: StorageTask
 var _response_code: int
-var _response_headers: PoolStringArray
-var _response_data: PoolByteArray
+var _response_headers: PackedStringArray
+var _response_data: PackedByteArray
 var _content_length: int
 var _reading_body: bool
 
@@ -79,7 +79,7 @@ func _internal_process(_delta: float) -> void:
                 _reading_body = true
 
                 # If there is a response...
-                if _response_headers.empty():
+                if _response_headers.is_empty():
                     _response_headers = _http_client.get_response_headers() # Get response headers.
                     _response_code = _http_client.get_response_code()
 
@@ -163,7 +163,7 @@ func _check_emulating() -> void:
             _base_url = "http://localhost:{port}/{version}/".format({version = _API_VERSION, port = port})
 
 
-func _upload(data: PoolByteArray, headers: PoolStringArray, ref: StorageReference, meta_only: bool) -> StorageTask:
+func _upload(data: PackedByteArray, headers: PackedStringArray, ref: StorageReference, meta_only: bool) -> StorageTask:
     if not (_config and _auth):
         return null
 
@@ -196,7 +196,7 @@ func _download(ref: StorageReference, meta_only: bool, url_only: bool) -> Storag
     task.action = StorageTask.Task.TASK_DOWNLOAD
     _pending_tasks.append(task)
 
-    yield(info_task, "task_finished")
+    await info_task.task_finished
     if info_task.data and not info_task.data.has("error"):
         task._url += info_task.data.downloadTokens
     else:
@@ -244,12 +244,12 @@ func _process_request(task: StorageTask) -> void:
 
     var headers = Array(task._headers)
     headers.append("Authorization: Bearer " + _auth.idtoken)
-    task._headers = PoolStringArray(headers)
+    task._headers = PackedStringArray(headers)
 
     _current_task = task
     _response_code = 0
-    _response_headers = PoolStringArray()
-    _response_data = PoolByteArray()
+    _response_headers = PackedStringArray()
+    _response_data = PackedByteArray()
     _content_length = 0
     _reading_body = false
 
@@ -273,18 +273,22 @@ func _finish_request(result: int) -> void:
         StorageTask.Task.TASK_DELETE:
             _references.erase(task.ref.full_path)
             task.ref.valid = false
-            if typeof(task.data) == TYPE_RAW_ARRAY:
+            if typeof(task.data) == TYPE_PACKED_BYTE_ARRAY:
                 task.data = null
 
         StorageTask.Task.TASK_DOWNLOAD_URL:
-            var json: Dictionary = JSON.parse(_response_data.get_string_from_utf8()).result
+            var test_json_conv = JSON.new()
+            test_json_conv.parse(_response_data.get_string_from_utf8()).result
+            var json: Dictionary = test_json_conv.get_data()
             if json and json.has("downloadTokens"):
                 task.data = _base_url + _get_file_url(task.ref) + "?alt=media&token=" + json.downloadTokens
             else:
                 task.data = ""
 
         StorageTask.Task.TASK_LIST, StorageTask.Task.TASK_LIST_ALL:
-            var json: Dictionary = JSON.parse(_response_data.get_string_from_utf8()).result
+            var test_json_conv = JSON.new()
+            test_json_conv.parse(_response_data.get_string_from_utf8()).result
+            var json: Dictionary = test_json_conv.get_data()
             var items := []
             if json and json.has("items"):
                 for item in json.items:
@@ -308,10 +312,12 @@ func _finish_request(result: int) -> void:
             task.data = items
 
         _:
-            task.data = JSON.parse(_response_data.get_string_from_utf8()).result
+            var test_json_conv = JSON.new()
+            test_json_conv.parse(_response_data.get_string_from_utf8()).result
+            task.data = test_json_conv.get_data()
 
     var next_task: StorageTask
-    if not _pending_tasks.empty():
+    if not _pending_tasks.is_empty():
         next_task = _pending_tasks.pop_front()
 
     task.finished = true
@@ -325,7 +331,7 @@ func _finish_request(result: int) -> void:
         if next_task and not next_task.finished:
             _process_request(next_task)
             break
-        elif not _pending_tasks.empty():
+        elif not _pending_tasks.is_empty():
             next_task = _pending_tasks.pop_front()
         else:
             break
@@ -349,7 +355,7 @@ func _simplify_path(path: String) -> String:
         else:
             new_dirs.push_back(dir)
 
-    var new_path := PoolStringArray(new_dirs).join("/")
+    var new_path := "/".join(PackedStringArray(new_dirs))
     new_path = new_path.replace("//", "/")
     new_path = new_path.replace("\\", "/")
     return new_path

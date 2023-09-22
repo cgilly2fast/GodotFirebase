@@ -1,5 +1,5 @@
-tool
-extends Reference
+@tool
+extends RefCounted
 
 
 var _pending_docs := {}
@@ -8,24 +8,24 @@ var _docs_queue := []
 const _GD_TYPES = [
 	"", "bool", "int", "float",
 	"String", "Vector2", "Rect2", "Vector3",
-	"Transform2D", "Plane", "Quat", "AABB",
-	"Basis", "Transform", "Color", "NodePath",
+	"Transform2D", "Plane", "Quaternion", "AABB",
+	"Basis", "Transform3D", "Color", "NodePath",
 	"RID", "Object", "Dictionary", "Array",
-	"PoolByteArray", "PoolIntArray", "PoolRealArray", "PoolStringArray",
-	"PoolVector2Array", "PoolVector3Array", "PoolColorArray"
+	"PackedByteArray", "PackedInt32Array", "PackedFloat32Array", "PackedStringArray",
+	"PackedVector2Array", "PackedVector3Array", "PackedColorArray"
 ]
 
 var plugin: EditorPlugin
 
 
 func _update() -> void:
-	var time := OS.get_ticks_msec()
-	while not _docs_queue.empty() and OS.get_ticks_msec() - time < 5:
+	var time := Time.get_ticks_msec()
+	while not _docs_queue.is_empty() and Time.get_ticks_msec() - time < 5:
 		var name: String = _docs_queue.pop_front()
 		var doc: ClassDocItem = _pending_docs[name]
 		var should_first_gen := _generate(doc)
 
-		if should_first_gen.empty():
+		if should_first_gen.is_empty():
 			_pending_docs.erase(name)
 		else:
 			_docs_queue.push_back(name)
@@ -158,7 +158,7 @@ func _generate(doc: ClassDocItem) -> String:
 			else:
 				comment_block += line + "\n"
 
-		elif not comment_block.empty():
+		elif not comment_block.is_empty():
 			var doc_item: DocItem
 
 			# Class document
@@ -286,7 +286,7 @@ func _generate(doc: ClassDocItem) -> String:
 
 
 func _create_method_doc(name: String, script: Script = null, method := {}) -> MethodDocItem:
-	if method.empty():
+	if method.is_empty():
 		var methods := script.get_script_method_list()
 		for m in methods:
 			if m.name == name:
@@ -315,7 +315,7 @@ func _create_method_doc(name: String, script: Script = null, method := {}) -> Me
 
 
 func _create_property_doc(name: String, script: Script = null, property := {}) -> PropertyDocItem:
-	if property.empty():
+	if property.is_empty():
 		var properties := script.get_script_property_list()
 		for p in properties:
 			if p.name == name:

@@ -3,9 +3,9 @@
 ## @meta-version 2.3
 ## A reference to a Firestore Collection.
 ## Documentation TODO.
-tool
+@tool
 class_name FirestoreCollection
-extends Reference
+extends RefCounted
 
 signal add_document(doc)
 signal get_document(doc)
@@ -41,8 +41,8 @@ func get(document_id : String) -> FirestoreTask:
     task.data = collection_name + "/" + document_id
     var url = _get_request_url() + _separator + document_id.replace(" ", "%20")
 
-    task.connect("get_document", self, "_on_get_document")
-    task.connect("task_finished", self, "_on_task_finished", [document_id], CONNECT_DEFERRED)
+    task.connect("get_document", Callable(self, "_on_get_document"))
+    task.connect("task_finished", Callable(self, "_on_task_finished").bind(document_id), CONNECT_DEFERRED)
     _process_request(task, document_id, url)
     return task
 
@@ -56,9 +56,9 @@ func add(document_id : String, fields : Dictionary = {}) -> FirestoreTask:
     task.data = collection_name + "/" + document_id
     var url = _get_request_url() + _query_tag + _documentId_tag + document_id
 
-    task.connect("add_document", self, "_on_add_document")
-    task.connect("task_finished", self, "_on_task_finished", [document_id], CONNECT_DEFERRED)
-    _process_request(task, document_id, url, JSON.print(FirestoreDocument.dict2fields(fields)))
+    task.connect("add_document", Callable(self, "_on_add_document"))
+    task.connect("task_finished", Callable(self, "_on_task_finished").bind(document_id), CONNECT_DEFERRED)
+    _process_request(task, document_id, url, JSON.stringify(FirestoreDocument.dict2fields(fields)))
     return task
 
 ## @args document_id, fields
@@ -74,9 +74,9 @@ func update(document_id : String, fields : Dictionary = {}) -> FirestoreTask:
         url+="updateMask.fieldPaths={key}&".format({key = key})
     url = url.rstrip("&")
 
-    task.connect("update_document", self, "_on_update_document")
-    task.connect("task_finished", self, "_on_task_finished", [document_id], CONNECT_DEFERRED)
-    _process_request(task, document_id, url, JSON.print(FirestoreDocument.dict2fields(fields)))
+    task.connect("update_document", Callable(self, "_on_update_document"))
+    task.connect("task_finished", Callable(self, "_on_task_finished").bind(document_id), CONNECT_DEFERRED)
+    _process_request(task, document_id, url, JSON.stringify(FirestoreDocument.dict2fields(fields)))
     return task
 
 ## @args document_id
@@ -88,8 +88,8 @@ func delete(document_id : String) -> FirestoreTask:
     task.data = collection_name + "/" + document_id
     var url = _get_request_url() + _separator + document_id.replace(" ", "%20")
 
-    task.connect("delete_document", self, "_on_delete_document")
-    task.connect("task_finished", self, "_on_task_finished", [document_id], CONNECT_DEFERRED)
+    task.connect("delete_document", Callable(self, "_on_delete_document"))
+    task.connect("task_finished", Callable(self, "_on_task_finished").bind(document_id), CONNECT_DEFERRED)
     _process_request(task, document_id, url)
     return task
 
@@ -99,12 +99,12 @@ func _get_request_url() -> String:
 
 
 func _process_request(task : FirestoreTask, document_id : String, url : String, fields := "") -> void:
-    task.connect("task_error", self, "_on_error")
+    task.connect("task_error", Callable(self, "_on_error"))
 
     if not auth:
         Firebase._print("Unauthenticated request issued...")
         Firebase.Auth.login_anonymous()
-        var result : Array = yield(Firebase.Auth, "auth_request")
+        var result : Array = await Firebase.Auth.auth_request
         if result[0] != 1:
             Firebase.Firestore._check_auth_error(result[0], result[1])
             return null
@@ -112,8 +112,8 @@ func _process_request(task : FirestoreTask, document_id : String, url : String, 
 
     task._url = url
     task._fields = fields
-    task._headers = PoolStringArray([_AUTHORIZATION_HEADER + auth.idtoken])
-    if _request_queues.has(document_id) and not _request_queues[document_id].empty():
+    task._headers = PackedStringArray([_AUTHORIZATION_HEADER + auth.idtoken])
+    if _request_queues.has(document_id) and not _request_queues[document_id].is_empty():
         _request_queues[document_id].append(task)
     else:
         _request_queues[document_id] = []
@@ -122,7 +122,7 @@ func _process_request(task : FirestoreTask, document_id : String, url : String, 
 
 
 func _on_task_finished(task : FirestoreTask, document_id : String) -> void:
-    if not _request_queues[document_id].empty():
+    if not _request_queues[document_id].is_empty():
         task._push_request(task._url, _AUTHORIZATION_HEADER + auth.idtoken, task._fields)
 
 

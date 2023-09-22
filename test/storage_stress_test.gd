@@ -3,25 +3,25 @@ extends Node2D
 
 var offset := 0
 
-export var email := ""
-export var password := ""
+@export var email := ""
+@export var password := ""
 
 
 func _ready() -> void:
     Firebase.Auth.login_with_email_and_password(email, password)
-    yield(Firebase.Auth, "login_succeeded")
+    await Firebase.Auth.login_succeeded
     print("Logged in!")
 
     var ref = Firebase.Storage.ref("test/test_image0.png")
     var task = ref.put_file("res://icon.png")
-    task.connect("task_finished", self, "_on_task_finished", [task])
+    task.connect("task_finished", Callable(self, "_on_task_finished").bind(task))
 
     for i in range(10):
         task = ref.get_data()
-        task.connect("task_finished", self, "_on_task_finished", [task])
+        task.connect("task_finished", Callable(self, "_on_task_finished").bind(task))
 
     task = ref.delete()
-    task.connect("task_finished", self, "_on_task_finished", [task])
+    task.connect("task_finished", Callable(self, "_on_task_finished").bind(task))
 
 
 func _on_task_finished(task: StorageTask) -> void:
@@ -29,7 +29,9 @@ func _on_task_finished(task: StorageTask) -> void:
         if typeof(task.data) == TYPE_DICTIONARY:
             printerr(task.data)
         else:
-            printerr(JSON.parse(task.data.get_string_from_utf8()).result)
+            var test_json_conv = JSON.new()
+            test_json_conv.parse(task.data.get_string_from_utf8()).result)
+            printerr(test_json_conv.get_data()
         return
 
     match task.action:
@@ -42,7 +44,7 @@ func _on_task_finished(task: StorageTask) -> void:
             var tex := ImageTexture.new()
             tex.create_from_image(image)
 
-            var sprite := Sprite.new()
+            var sprite := Sprite2D.new()
             sprite.scale *= 0.7
             sprite.centered = false
             sprite.texture = tex

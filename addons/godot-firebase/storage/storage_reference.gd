@@ -1,10 +1,10 @@
+@tool
 ## @meta-authors SIsilicon
 ## @meta-version 2.2
 ## A reference to a file or folder in the Firebase cloud storage.
 ## This object is used to interact with the cloud storage. You may get data from the server, as well as upload your own back to it.
-tool
 class_name StorageReference
-extends Reference
+extends RefCounted
 
 
 ## The default MIME type to use when uploading a file.
@@ -83,7 +83,7 @@ func child(path: String) -> StorageReference:
 ## @args data, metadata
 ## @return StorageTask
 ## Makes an attempt to upload data to the referenced file location. Status on this task is found in the returned [StorageTask].
-func put_data(data: PoolByteArray, metadata := {}) -> StorageTask:
+func put_data(data: PackedByteArray, metadata := {}) -> StorageTask:
     if not valid:
         return null
     if not "Content-Length" in metadata and OS.get_name() != "HTML5":
@@ -100,7 +100,7 @@ func put_data(data: PoolByteArray, metadata := {}) -> StorageTask:
 ## @return StorageTask
 ## Like [method put_data], but [code]data[/code] is a [String].
 func put_string(data: String, metadata := {}) -> StorageTask:
-    return put_data(data.to_utf8(), metadata)
+    return put_data(data.to_utf8_buffer(), metadata)
 
 
 ## @args file_path, metadata
@@ -109,7 +109,7 @@ func put_string(data: String, metadata := {}) -> StorageTask:
 func put_file(file_path: String, metadata := {}) -> StorageTask:
     var file := File.new()
     file.open(file_path, File.READ)
-    var data := file.get_buffer(file.get_len())
+    var data := file.get_buffer(file.get_length())
     file.close()
 
     if "Content-Type" in metadata:
@@ -131,7 +131,7 @@ func get_data() -> StorageTask:
 ## Like [method get_data], but the data in the returned [StorageTask] comes in the form of a [String].
 func get_string() -> StorageTask:
     var task := get_data()
-    task.connect("task_finished", self, "_on_task_finished", [task, "stringify"])
+    task.connect("task_finished", Callable(self, "_on_task_finished").bind(task, "stringify"))
     return task
 
 
@@ -157,8 +157,8 @@ func get_metadata() -> StorageTask:
 func update_metadata(metadata: Dictionary) -> StorageTask:
     if not valid:
         return null
-    var data := JSON.print(metadata).to_utf8()
-    var headers := PoolStringArray(["Accept: application/json"])
+    var data := JSON.stringify(metadata).to_utf8_buffer()
+    var headers := PackedStringArray(["Accept: application/json"])
     return storage._upload(data, headers, self, true)
 
 
@@ -189,12 +189,12 @@ func delete() -> StorageTask:
 func _to_string() -> String:
     var string := "gs://%s/%s" % [bucket, full_path]
     if not valid:
-        string += " [Invalid Reference]"
+        string += " [Invalid RefCounted]"
     return string
 
 
 func _on_task_finished(task: StorageTask, action: String) -> void:
     match action:
         "stringify":
-            if typeof(task.data) == TYPE_RAW_ARRAY:
+            if typeof(task.data) == TYPE_PACKED_BYTE_ARRAY:
                 task.data = task.data.get_string_from_utf8()

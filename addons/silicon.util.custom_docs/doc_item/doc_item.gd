@@ -1,7 +1,7 @@
+@tool
 ## The base class for all documentation items.
-tool
 class_name DocItem
-extends Reference
+extends RefCounted
 
 
 ## @default ""

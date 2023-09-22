@@ -8,7 +8,7 @@
 ## 	- [code]Storage[/code]: Gives access to Cloud Storage; perfect for storing files like images and other assets.
 ##
 ## @tutorial https://github.com/GodotNuts/GodotFirebase/wiki
-tool
+@tool
 extends Node
 
 
@@ -18,29 +18,29 @@ const _AUTH_PROVIDERS: String = "firebase/auth_providers"
 
 ## @type FirebaseAuth
 ## The Firebase Authentication API.
-onready var Auth: FirebaseAuth = $Auth
+@onready var Auth: FirebaseAuth = $Auth
 
 ## @type FirebaseFirestore
 ## The Firebase Firestore API.
-onready var Firestore: FirebaseFirestore = $Firestore
+@onready var Firestore: FirebaseFirestore = $Firestore
 
 ## @type FirebaseDatabase
 ## The Firebase Realtime Database API.
-onready var Database: FirebaseDatabase = $Database
+@onready var Database: FirebaseDatabase = $Database
 
 ## @type FirebaseStorage
 ## The Firebase Storage API.
-onready var Storage: FirebaseStorage = $Storage
+@onready var Storage: FirebaseStorage = $Storage
 
 ## @type FirebaseDynamicLinks
 ## The Firebase Dynamic Links API.
-onready var DynamicLinks: FirebaseDynamicLinks = $DynamicLinks
+@onready var DynamicLinks: FirebaseDynamicLinks = $DynamicLinks
 
 ## @type FirebaseFunctions
 ## The Firebase Cloud Functions API
-onready var Functions: FirebaseFunctions = $Functions
+@onready var Functions: FirebaseFunctions = $Functions
 
-export var emulating: bool = false
+@export var emulating: bool = false
 
 # Configuration used by all files in this project
 # These values can be found in your Firebase Project
@@ -121,7 +121,7 @@ func _load_config() -> void:
                     else:
                         _config[key] = value
         else:
-            _printerr("Unable to read .env file at path 'res://addons/godot-firebase/.env'")
+            _printerr("Unable to read super.env file at path 'res://addons/godot-firebase/.env'")
 
     _setup_modules()
 
@@ -131,10 +131,10 @@ func _setup_modules() -> void:
         module._set_config(_config)
         if not module.has_method("_on_FirebaseAuth_login_succeeded"):
             continue
-        Auth.connect("login_succeeded", module, "_on_FirebaseAuth_login_succeeded")
-        Auth.connect("signup_succeeded", module, "_on_FirebaseAuth_login_succeeded")
-        Auth.connect("token_refresh_succeeded", module, "_on_FirebaseAuth_token_refresh_succeeded")
-        Auth.connect("logged_out", module, "_on_FirebaseAuth_logout")
+        Auth.connect("login_succeeded", Callable(module, "_on_FirebaseAuth_login_succeeded"))
+        Auth.connect("signup_succeeded", Callable(module, "_on_FirebaseAuth_login_succeeded"))
+        Auth.connect("token_refresh_succeeded", Callable(module, "_on_FirebaseAuth_token_refresh_succeeded"))
+        Auth.connect("logged_out", Callable(module, "_on_FirebaseAuth_logout"))
 
 
 # -------------

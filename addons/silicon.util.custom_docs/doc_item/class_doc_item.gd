@@ -1,6 +1,6 @@
+@tool
 ## An object that contains documentation data about a class.
 ## @contribute https://placeholder_contribute.com
-tool
 class_name ClassDocItem
 extends DocItem
 

@@ -1,4 +1,4 @@
-tool
+@tool
 extends DocExporter
 
 var plugin: EditorPlugin
@@ -11,12 +11,12 @@ var theme: Theme
 var class_list := Array(ClassDB.get_class_list()) + [
 	"Variant", "bool", "int", "float",
 	"String", "Vector2", "Rect2", "Vector3",
-	"Transform2D", "Plane", "Quat", "AABB",
-	"Basis", "Transform", "Color", "NodePath",
+	"Transform2D", "Plane", "Quaternion", "AABB",
+	"Basis", "Transform3D", "Color", "NodePath",
 	"RID", "Object", "Dictionary", "Array",
-	"PoolByteArray", "PoolIntArray", "PoolRealArray",
-	"PoolStringArray", "PoolVector2Array",
-	"PoolVector3Array", "PoolColorArray"
+	"PackedByteArray", "PackedInt32Array", "PackedFloat32Array",
+	"PackedStringArray", "PackedVector2Array",
+	"PackedVector3Array", "PackedColorArray"
 ]
 
 var section_lines := []
@@ -267,7 +267,7 @@ func _generate(doc: ClassDocItem) -> String:
 
 	if methods.size():
 		if sort_methods:
-			methods.sort_custom(self, "sort_methods")
+			methods.sort_custom(Callable(self, "sort_methods"))
 		if is_current:
 			section_lines.append(["Methods", label.get_line_count() - 2])
 		label.push_color(title_color)
@@ -289,7 +289,7 @@ func _generate(doc: ClassDocItem) -> String:
 				if (_pass == 0 and method.is_virtual) or (_pass == 1 and not method.is_virtual):
 					m.append(method)
 
-			if any_previous and not m.empty():
+			if any_previous and not m.is_empty():
 				label.push_cell()
 				label.pop() #cell
 				label.push_cell()
@@ -318,7 +318,7 @@ func _generate(doc: ClassDocItem) -> String:
 
 				add_method(m[i], true)
 
-			any_previous = !m.empty()
+			any_previous = !m.is_empty()
 
 		label.pop() #table
 		label.pop()
@@ -757,31 +757,31 @@ func update_theme_vars() -> void:
 	title_color = theme.get_color("accent_color", "Editor")
 	text_color = theme.get_color("default_color", "RichTextLabel")
 	headline_color = theme.get_color("headline_color", "EditorHelp")
-	base_type_color = title_color.linear_interpolate(text_color, 0.5)
+	base_type_color = title_color.lerp(text_color, 0.5)
 	comment_color = text_color * Color(1, 1, 1, 0.6)
 	symbol_color = comment_color
 	value_color = text_color * Color(1, 1, 1, 0.6)
 	qualifier_color = text_color * Color(1, 1, 1, 0.8)
-	type_color = theme.get_color("accent_color", "Editor").linear_interpolate(text_color, 0.5)
+	type_color = theme.get_color("accent_color", "Editor").lerp(text_color, 0.5)
 
 
 func add_type(type: String, _enum: String):
 	var t := type
-	if t.empty():
+	if t.is_empty():
 		t = "void"
-	var can_ref := (t != "void") or not _enum.empty()
+	var can_ref := (t != "void") or not _enum.is_empty()
 
-	if not _enum.empty():
+	if not _enum.is_empty():
 		if _enum.split(".").size() > 1:
 			t = _enum.split(".")[1]
 		else:
 			t = _enum.split(".")[0]
 
 	var text_color := label.get_color("default_color", "RichTextLabel")
-	var type_color := label.get_color("accent_color", "Editor").linear_interpolate(text_color, 0.5)
+	var type_color := label.get_color("accent_color", "Editor").lerp(text_color, 0.5)
 	label.push_color(type_color)
 	if can_ref:
-		if _enum.empty():
+		if _enum.is_empty():
 			label.push_meta("#" + t) #class
 		else:
 			label.push_meta("$" + _enum) #class
@@ -861,9 +861,9 @@ func add_text(bbcode: String) -> void:
 	var headline_color := label.get_color("headline_color", "EditorHelp")
 	var accent_color := label.get_color("accent_color", "Editor")
 	var property_color := label.get_color("property_color", "Editor")
-	var link_color := accent_color.linear_interpolate(headline_color, 0.8)
-	var code_color := accent_color.linear_interpolate(headline_color, 0.6)
-	var kbd_color := accent_color.linear_interpolate(property_color, 0.6)
+	var link_color := accent_color.lerp(headline_color, 0.8)
+	var code_color := accent_color.lerp(headline_color, 0.6)
+	var kbd_color := accent_color.lerp(property_color, 0.6)
 
 	bbcode = bbcode.dedent().replace("\t", "").replace("\r", "").strip_edges()
 
@@ -976,7 +976,7 @@ func add_text(bbcode: String) -> void:
 			tag_stack.push_front(tag)
 		elif tag == "center":
 			#align to center
-			label.push_paragraph(RichTextLabel.ALIGN_CENTER, Control.TEXT_DIRECTION_AUTO, "")
+			label.push_paragraph(RichTextLabel.ALIGNMENT_CENTER, Control.TEXT_DIRECTION_AUTO, "")
 			pos = brk_end + 1
 			tag_stack.push_front(tag)
 		elif tag == "br":
@@ -1012,7 +1012,7 @@ func add_text(bbcode: String) -> void:
 			if end == -1:
 				end = bbcode.length()
 			var image := bbcode.substr(brk_end + 1, end - brk_end - 1)
-			var texture := load(base_path.plus_file(image)) as Texture
+			var texture := load(base_path.plus_file(image)) as Texture2D
 			if texture:
 				label.add_image(texture)
 

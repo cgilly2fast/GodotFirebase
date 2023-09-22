@@ -1,4 +1,4 @@
-tool
+@tool
 extends Node
 
 
@@ -21,7 +21,7 @@ var verify_host
 var told_to_connect = false
 var connection_in_progress = false
 var is_requested = false
-var response_body = PoolByteArray()
+var response_body = PackedByteArray()
 
 
 func connect_to_host(domain: String, url_after_domain: String, port: int = -1, use_ssl: bool = false, verify_host: bool = true):
@@ -57,7 +57,9 @@ func _parse_response_body(headers):
     if body:
         var event_data = get_event_data(body)
         if event_data.event != "keep-alive" and event_data.event != continue_internal:
-            var result = JSON.parse(event_data.data).result
+            var test_json_conv = JSON.new()
+            test_json_conv.parse(event_data.data).result
+            var result = test_json_conv.get_data()
             if response_body.size() > 0 and result: # stop here if the value doesn't parse
                 response_body.resize(0)
                 emit_signal("new_sse_event", headers, event_data.event, result)

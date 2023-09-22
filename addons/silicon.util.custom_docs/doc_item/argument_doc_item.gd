@@ -1,6 +1,6 @@
+@tool
 ## An object that contains documentation data about an argument of a signal or method.
 ## @contribute https://placeholder_contribute.com
-tool
 class_name ArgumentDocItem
 extends DocItem
 
